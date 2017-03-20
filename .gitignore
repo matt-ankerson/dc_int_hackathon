@@ -243,23 +243,4 @@ ModelManifest.xml
 # FAKE - F# Make
 .fake/
 /data
-/data
-/data/stationary.rssdk
-/data/old/stationary2.rssdk
-/data/old/stationary.rssdk
-/data/old/moving_head.rssdk
-/data/old/moving_body.rssdk
-/data/old
-/data/moving_head.rssdk
-/data/dark.rssdk
-/data/9.rssdk
-/data/8.rssdk
-/data/7.rssdk
-/data/6.rssdk
-/data/5.rssdk
-/data/4.rssdk
-/data/3.rssdk
-/data/2.rssdk
-/data/10.rssdk
-/data/1.rssdk
-/data
+/IntelPredictionSandbox/IntelPredictionSandbox/key.txt
