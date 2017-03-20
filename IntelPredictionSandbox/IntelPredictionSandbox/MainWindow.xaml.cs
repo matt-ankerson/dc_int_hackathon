@@ -18,6 +18,8 @@ using System.Windows.Interop;
 using Microsoft.Azure.Devices;
 using Newtonsoft.Json;
 using Microsoft.Azure.Devices.Client;
+using Microsoft.Win32;
+using System.IO;
 
 namespace IntelPredictionSandbox
 {
@@ -34,17 +36,39 @@ namespace IntelPredictionSandbox
         {
             InitializeComponent();
 
-            //senseManager = PXCMSenseManager.CreateInstance();
+            senseManager = PXCMSenseManager.CreateInstance();
+
             //senseManager.EnableStream(PXCMCapture.StreamType.STREAM_TYPE_COLOR, 320, 240, 60);
-            //senseManager.EnableStream(PXCMCapture.StreamType.STREAM_TYPE_DEPTH, 480, 360, 60);
-            //senseManager.Init();
+            senseManager.EnableStream(PXCMCapture.StreamType.STREAM_TYPE_DEPTH, 320, 240, 30);
 
-            Device device = IoTHub.Instance.AddDeviceAsync("Bed1").Result;
-            deviceClient = DeviceClient.Create(IoTHub.Instance.HostName, new DeviceAuthenticationWithRegistrySymmetricKey("Bed1", device.Authentication.SymmetricKey.PrimaryKey), Microsoft.Azure.Devices.Client.TransportType.Mqtt);
-            SendData(10, 10, 10);
+            pxcmStatus initStatus = senseManager.Init();
 
-            //processingThread = new Thread(new ThreadStart(ProcessingDepthThread));
-            //processingThread.Start();
+            if (initStatus == pxcmStatus.PXCM_STATUS_ITEM_UNAVAILABLE)
+            {
+                // No camera, load data from file...
+                OpenFileDialog ofd = new OpenFileDialog();
+                ofd.Filter = "RSSDK clip|*.rssdk|All files|*.*";
+                ofd.CheckFileExists = true;
+                ofd.CheckPathExists = true;
+                Nullable<bool> result = ofd.ShowDialog();
+                if (result == true)
+                {
+                    senseManager.captureManager.SetFileName(ofd.FileName, false);
+                    initStatus = senseManager.Init();
+                }
+            }
+
+            if (initStatus < pxcmStatus.PXCM_STATUS_NO_ERROR)
+            {
+                throw new Exception(String.Format("Init failed: {0}", initStatus));
+            }
+
+            //device device = iothub.instance.adddeviceasync("bed1").result;
+            //deviceclient = deviceclient.create(iothub.instance.hostname, new deviceauthenticationwithregistrysymmetrickey("bed1", device.authentication.symmetrickey.primarykey), microsoft.azure.devices.client.transporttype.mqtt);
+            //senddata(10, 10, 10);
+
+            processingThread = new Thread(new ThreadStart(ProcessingDepthThread));
+            processingThread.Start();
         }
 
         private void ProcessingRGBThread()
@@ -71,18 +95,21 @@ namespace IntelPredictionSandbox
         private void ProcessingDepthThread()
         {
             PXCMCapture.Sample sample;
-            PXCMImage.ImageData colorData;
+            PXCMImage.ImageData depthData;
             Bitmap colorBitmap;
+
             while (senseManager.AcquireFrame(true) >= pxcmStatus.PXCM_STATUS_NO_ERROR)
             {
                 sample = senseManager.QuerySample();
-                sample.depth.AcquireAccess(PXCMImage.Access.ACCESS_READ, PXCMImage.PixelFormat.PIXEL_FORMAT_DEPTH, out colorData);
-                colorBitmap = colorData.ToBitmap(0, sample.depth.info.width, sample.depth.info.height);
+                sample.depth.AcquireAccess(PXCMImage.Access.ACCESS_READ, PXCMImage.PixelFormat.PIXEL_FORMAT_DEPTH, out depthData);
+                colorBitmap = depthData.ToBitmap(0, sample.depth.info.width, sample.depth.info.height);
 
-                //UpdateUI(colorBitmap);
+                var image = depthData.ToBitmap(0, sample.depth.info.width, sample.depth.info.height);
+
+                //UpdateUI(image);
 
                 colorBitmap.Dispose();
-                sample.depth.ReleaseAccess(colorData);
+                sample.depth.ReleaseAccess(depthData);
                 senseManager.ReleaseFrame();
 
                 //Thread.Sleep(200);
