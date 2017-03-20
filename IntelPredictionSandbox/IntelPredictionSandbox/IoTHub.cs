@@ -32,14 +32,12 @@ namespace IntelPredictionSandbox
             Device device;
             try
             {
-                //throw new Exception();
                 device = await registryManager.AddDeviceAsync(new Device(deviceId));
             }
-            catch (Exception)
+            catch (DeviceAlreadyExistsException)
             {
                 device = await registryManager.GetDeviceAsync(deviceId);
             }
-            Console.WriteLine("Generated device key: {0}", device.Authentication.SymmetricKey.PrimaryKey);
             return device;
         }
     }
