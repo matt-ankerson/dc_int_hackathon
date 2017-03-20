@@ -1,22 +1,9 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Threading;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
 using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
 using System.Drawing;
-using System.Windows.Interop;
 using Microsoft.Azure.Devices;
-using Newtonsoft.Json;
 using Microsoft.Azure.Devices.Client;
 using System.IO;
 using System.Drawing.Imaging;
@@ -29,6 +16,8 @@ namespace IntelPredictionSandbox
     /// </summary>
     public partial class MainWindow : Window
     {
+        private const string deviceId = "Bed1";
+
         private PXCMSenseManager senseManager;
         private Thread processingThread;
         private DeviceClient deviceClient;
@@ -38,15 +27,11 @@ namespace IntelPredictionSandbox
         {
             InitializeComponent();
 
-
             imageConverter = new ImageConverter();
 
             senseManager = PXCMSenseManager.CreateInstance();
-            //senseManager.EnableStream(PXCMCapture.StreamType.STREAM_TYPE_COLOR, 320, 240, 60);
             senseManager.EnableStream(PXCMCapture.StreamType.STREAM_TYPE_DEPTH, 320, 240, 30);
-
             pxcmStatus initStatus = senseManager.Init();
-
             if (initStatus == pxcmStatus.PXCM_STATUS_ITEM_UNAVAILABLE)
             {
                 // No camera, load data from file...
@@ -54,45 +39,25 @@ namespace IntelPredictionSandbox
                 ofd.Filter = "RSSDK clip|*.rssdk|All files|*.*";
                 ofd.CheckFileExists = true;
                 ofd.CheckPathExists = true;
-                Nullable<bool> result = ofd.ShowDialog();
+                bool? result = ofd.ShowDialog();
                 if (result == true)
                 {
                     senseManager.captureManager.SetFileName(ofd.FileName, false);
                     initStatus = senseManager.Init();
                 }
             }
-
             if (initStatus < pxcmStatus.PXCM_STATUS_NO_ERROR)
             {
                 throw new Exception(String.Format("Init failed: {0}", initStatus));
             }
 
-            Device device = IoTHub.Instance.AddDeviceAsync("bed1").Result;
-            deviceClient = DeviceClient.Create(IoTHub.Instance.HostName, new DeviceAuthenticationWithRegistrySymmetricKey("bed1", device.Authentication.SymmetricKey.PrimaryKey), Microsoft.Azure.Devices.Client.TransportType.Http1);
+            // Register the device
+            Device device = IoTHub.Instance.AddDeviceAsync(deviceId).Result;
+            deviceClient = DeviceClient.Create(IoTHub.Instance.HostName, new DeviceAuthenticationWithRegistrySymmetricKey(deviceId, device.Authentication.SymmetricKey.PrimaryKey), Microsoft.Azure.Devices.Client.TransportType.Http1);
 
+            // Begin processing and uploading data
             processingThread = new Thread(new ThreadStart(ProcessingDepthThread));
             processingThread.Start();
-        }
-
-        private void ProcessingRGBThread()
-        {
-            PXCMCapture.Sample sample;
-            PXCMImage.ImageData colorData;
-            Bitmap colorBitmap;
-            while (senseManager.AcquireFrame(true) >= pxcmStatus.PXCM_STATUS_NO_ERROR)
-            {
-                sample = senseManager.QuerySample();
-                sample.color.AcquireAccess(PXCMImage.Access.ACCESS_READ, PXCMImage.PixelFormat.PIXEL_FORMAT_RGB24, out colorData);
-                colorBitmap = colorData.ToBitmap(0, sample.color.info.width, sample.color.info.height);
-
-                //UpdateUI(colorBitmap);
-
-                colorBitmap.Dispose();
-                sample.color.ReleaseAccess(colorData);
-                senseManager.ReleaseFrame();
-
-                //Thread.Sleep(200);
-            }
         }
 
         private void ProcessingDepthThread()
