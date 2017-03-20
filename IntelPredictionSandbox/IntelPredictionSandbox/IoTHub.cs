@@ -31,7 +31,7 @@ namespace IntelPredictionSandbox
             Device device;
             try
             {
-                throw new Exception();
+                //throw new Exception();
                 device = await registryManager.AddDeviceAsync(new Device(deviceId));
             }
             catch (Exception)
