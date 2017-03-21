@@ -57,16 +57,10 @@ namespace IntelPredictionSandbox
             var primaryKey = "Yif0xNK5SFGxb02e3aW+J3vgyFv5TDKIKTIQa+sW4AU=";
             deviceClient = DeviceClient.Create(IoTHub.Instance.HostName, new DeviceAuthenticationWithRegistrySymmetricKey(deviceId, primaryKey), Microsoft.Azure.Devices.Client.TransportType.Http1);
 
-            // ========== TEMP ==========
-            PXCMCapture.Sample sample = senseManager.QuerySample();
-            PXCMImage.ImageData imageData;
-            sample.depth.AcquireAccess(PXCMImage.Access.ACCESS_READ, PXCMImage.PixelFormat.PIXEL_FORMAT_DEPTH, out imageData);
-            var image = imageData.ToBitmap(0, sample.depth.info.width, sample.depth.info.height);
-            SendData(image);
 
             // Begin processing and uploading data
-            //processingThread = new Thread(new ThreadStart(ProcessingDepthThread));
-            //processingThread.Start();
+            processingThread = new Thread(new ThreadStart(ProcessingDepthThread));
+            processingThread.Start();
         }
 
         private void ProcessingDepthThread()
@@ -79,21 +73,55 @@ namespace IntelPredictionSandbox
                 sample = senseManager.QuerySample();
                 sample.depth.AcquireAccess(PXCMImage.Access.ACCESS_READ, PXCMImage.PixelFormat.PIXEL_FORMAT_DEPTH, out imageData);
 
-                if (previousImageData != null)
-                {
-                    var diff = ThresholdDepth(previousImageData, imageData, sample);
-                    //UpdateUI(diff);
-                    SendData(diff);
-                    diff.Dispose();
-                }
+                var image = ConvertDepthToBitmap(imageData, sample);
+
+                //if (previousImageData != null)
+                //{
+                //    var diff = ThresholdDepth(previousImageData, imageData, sample);
+                //    //UpdateUI(diff);
+                //    SendData(diff);
+                //    diff.Dispose();
+                //}
                 previousImageData = imageData;
+
+                UpdateUI(image);
 
                 sample.depth.ReleaseAccess(imageData);
                 senseManager.ReleaseFrame();
 
                 //Thread.Sleep(200); // In future, do once for every time interval
-                break; // Only do this once for now
             }
+        }
+
+        private Bitmap ConvertDepthToBitmap(PXCMImage.ImageData depthData, PXCMCapture.Sample sample)
+        {
+            Bitmap bmp = new Bitmap(sample.depth.info.width, sample.depth.info.height);
+
+            var size = sample.depth.info.width * sample.depth.info.height;
+            Int16[] values = new Int16[size];
+            var depthValues = depthData.ToShortArray(0, values);
+
+            var minDistance = 500; // mm
+            var maxDistance = 2000; // mm
+            float scale = 255.0f / (maxDistance - minDistance);
+
+            int i = 0;
+            for (var y = 0; y < sample.depth.info.height; y++)
+            {
+                for (var x = 0; x < sample.depth.info.width; x++)
+                {
+                    var distance = depthValues[i++]; // mm
+                    var brightness = 0;
+
+                    if (distance > minDistance && distance < maxDistance)
+                    {
+                        brightness = 255 - (int)((distance - minDistance) * scale);
+                    }
+                    System.Drawing.Color color = System.Drawing.Color.FromArgb(brightness, brightness, brightness);
+                    bmp.SetPixel(x, y, color);
+                }
+            }
+            return bmp;
         }
 
         private Bitmap ThresholdDepth(PXCMImage.ImageData previousDepthData, PXCMImage.ImageData depthData, PXCMCapture.Sample sample)
@@ -135,12 +163,11 @@ namespace IntelPredictionSandbox
 
         private async void SendData(Bitmap image)
         {
-            //var messageString = JsonConvert.SerializeObject(str);
             using (var ms = new MemoryStream())
             {
                 image.Save(ms, ImageFormat.Jpeg);
-                var message = new Microsoft.Azure.Devices.Client.Message(ms);
-                await deviceClient.SendEventAsync(message);
+                ms.Position = 0;
+                await deviceClient.UploadToBlobAsync(DateTime.Now.ToString("yyyyMMddHHmmss") + ".jpg", ms);
             }
         }
     }
