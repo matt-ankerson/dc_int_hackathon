@@ -29,44 +29,37 @@ namespace IntelPredictionSandbox
 
             imageConverter = new ImageConverter();
 
-            senseManager = PXCMSenseManager.CreateInstance();
-            senseManager.EnableStream(PXCMCapture.StreamType.STREAM_TYPE_DEPTH, 320, 240, 30);
-            pxcmStatus initStatus = senseManager.Init();
-            if (initStatus == pxcmStatus.PXCM_STATUS_ITEM_UNAVAILABLE)
-            {
-                // No camera, load data from file...
-                OpenFileDialog ofd = new OpenFileDialog();
-                ofd.Filter = "RSSDK clip|*.rssdk|All files|*.*";
-                ofd.CheckFileExists = true;
-                ofd.CheckPathExists = true;
-                bool? result = ofd.ShowDialog();
-                if (result == true)
-                {
-                    senseManager.captureManager.SetFileName(ofd.FileName, false);
-                    initStatus = senseManager.Init();
-                }
-            }
-            if (initStatus < pxcmStatus.PXCM_STATUS_NO_ERROR)
-            {
-                throw new Exception(String.Format("Init failed: {0}", initStatus));
-            }
+            //senseManager = PXCMSenseManager.CreateInstance();
+            //senseManager.EnableStream(PXCMCapture.StreamType.STREAM_TYPE_DEPTH, 320, 240, 30);
+            //pxcmStatus initStatus = senseManager.Init();
+            //if (initStatus == pxcmStatus.PXCM_STATUS_ITEM_UNAVAILABLE)
+            //{
+            //    // No camera, load data from file...
+            //    OpenFileDialog ofd = new OpenFileDialog();
+            //    ofd.Filter = "RSSDK clip|*.rssdk|All files|*.*";
+            //    ofd.CheckFileExists = true;
+            //    ofd.CheckPathExists = true;
+            //    bool? result = ofd.ShowDialog();
+            //    if (result == true)
+            //    {
+            //        senseManager.captureManager.SetFileName(ofd.FileName, false);
+            //        initStatus = senseManager.Init();
+            //    }
+            //}
+            //if (initStatus < pxcmStatus.PXCM_STATUS_NO_ERROR)
+            //{
+            //    throw new Exception(String.Format("Init failed: {0}", initStatus));
+            //}
 
             // Register the device
             //Device device = IoTHub.Instance.AddDeviceAsync(deviceId).Result;
-            //deviceClient = DeviceClient.Create(IoTHub.Instance.HostName, new DeviceAuthenticationWithRegistrySymmetricKey(deviceId, device.Authentication.SymmetricKey.PrimaryKey), Microsoft.Azure.Devices.Client.TransportType.Http1);
+            //deviceClient = DeviceClient.Create(IoTHub.Instance.HostName, new DeviceAuthenticationWithRegistrySymmetricKey(deviceId, device.Authentication.SymmetricKey.PrimaryKey), Microsoft.Azure.Devices.Client.TransportType.Mqtt);
             var primaryKey = "Yif0xNK5SFGxb02e3aW+J3vgyFv5TDKIKTIQa+sW4AU=";
             deviceClient = DeviceClient.Create(IoTHub.Instance.HostName, new DeviceAuthenticationWithRegistrySymmetricKey(deviceId, primaryKey), Microsoft.Azure.Devices.Client.TransportType.Http1);
 
-            // ========== TEMP ==========
-            PXCMCapture.Sample sample = senseManager.QuerySample();
-            PXCMImage.ImageData imageData;
-            sample.depth.AcquireAccess(PXCMImage.Access.ACCESS_READ, PXCMImage.PixelFormat.PIXEL_FORMAT_DEPTH, out imageData);
-            var image = imageData.ToBitmap(0, sample.depth.info.width, sample.depth.info.height);
-            SendData(image);
-
             // Begin processing and uploading data
-            //processingThread = new Thread(new ThreadStart(ProcessingDepthThread));
-            //processingThread.Start();
+            processingThread = new Thread(new ThreadStart(ProcessingDepthThread));
+            processingThread.Start();
         }
 
         private void ProcessingDepthThread()
@@ -135,12 +128,11 @@ namespace IntelPredictionSandbox
 
         private async void SendData(Bitmap image)
         {
-            //var messageString = JsonConvert.SerializeObject(str);
             using (var ms = new MemoryStream())
             {
                 image.Save(ms, ImageFormat.Jpeg);
-                var message = new Microsoft.Azure.Devices.Client.Message(ms);
-                await deviceClient.SendEventAsync(message);
+                ms.Position = 0;
+                await deviceClient.UploadToBlobAsync(DateTime.Now.ToString("yyyyMMddHHmmss") + ".jpg", ms);
             }
         }
     }
