@@ -1,6 +1,7 @@
 ﻿using Microsoft.Azure.Devices;
 using Microsoft.Azure.Devices.Client.Exceptions;
 using System;
+using System.IO;
 using System.Threading.Tasks;
 
 namespace IntelPredictionSandbox
@@ -9,7 +10,7 @@ namespace IntelPredictionSandbox
     {
         private string hostName = "HealthyBedHub.azure-devices.net";
         private string sharedAccessKeyName = "iothubowner";
-        private string sharedAccessKey = "";
+        private string sharedAccessKey = File.ReadAllText("../../key.txt");
 
         public string HostName => hostName;
         public string SharedAccessKeyName => sharedAccessKeyName;
