@@ -52,54 +52,65 @@ namespace IntelPredictionSandbox
             }
 
             // Register the device
-            Device device = IoTHub.Instance.AddDeviceAsync(deviceId).Result;
-            deviceClient = DeviceClient.Create(IoTHub.Instance.HostName, new DeviceAuthenticationWithRegistrySymmetricKey(deviceId, device.Authentication.SymmetricKey.PrimaryKey), Microsoft.Azure.Devices.Client.TransportType.Http1);
+            //Device device = IoTHub.Instance.AddDeviceAsync(deviceId).Result;
+            //deviceClient = DeviceClient.Create(IoTHub.Instance.HostName, new DeviceAuthenticationWithRegistrySymmetricKey(deviceId, device.Authentication.SymmetricKey.PrimaryKey), Microsoft.Azure.Devices.Client.TransportType.Http1);
+            var primaryKey = "Yif0xNK5SFGxb02e3aW+J3vgyFv5TDKIKTIQa+sW4AU=";
+            deviceClient = DeviceClient.Create(IoTHub.Instance.HostName, new DeviceAuthenticationWithRegistrySymmetricKey(deviceId, primaryKey), Microsoft.Azure.Devices.Client.TransportType.Http1);
+
+            // ========== TEMP ==========
+            PXCMCapture.Sample sample = senseManager.QuerySample();
+            PXCMImage.ImageData imageData;
+            sample.depth.AcquireAccess(PXCMImage.Access.ACCESS_READ, PXCMImage.PixelFormat.PIXEL_FORMAT_DEPTH, out imageData);
+            var image = imageData.ToBitmap(0, sample.depth.info.width, sample.depth.info.height);
+            SendData(image);
 
             // Begin processing and uploading data
-            processingThread = new Thread(new ThreadStart(ProcessingDepthThread));
-            processingThread.Start();
+            //processingThread = new Thread(new ThreadStart(ProcessingDepthThread));
+            //processingThread.Start();
         }
 
         private void ProcessingDepthThread()
         {
             PXCMCapture.Sample sample;
             PXCMImage.ImageData imageData;
-            //PXCMImage.ImageData previousImageData = null;
-            //Bitmap bitmap;
+            PXCMImage.ImageData previousImageData = null;
             while (senseManager.AcquireFrame(true) >= pxcmStatus.PXCM_STATUS_NO_ERROR)
             {
                 sample = senseManager.QuerySample();
                 sample.depth.AcquireAccess(PXCMImage.Access.ACCESS_READ, PXCMImage.PixelFormat.PIXEL_FORMAT_DEPTH, out imageData);
-                //bitmap = imageData.ToBitmap(0, sample.depth.info.width, sample.depth.info.height);
 
-                var image = imageData.ToBitmap(0, sample.depth.info.width, sample.depth.info.height);
-
-                //if (previousImageData != null)
-                //{
-                    //var diff = ThresholdDepth(previousImageData, imageData, sample);
+                if (previousImageData != null)
+                {
+                    var diff = ThresholdDepth(previousImageData, imageData, sample);
                     //UpdateUI(diff);
-                    SendData(image);
-                //}
-                //previousImageData = imageData;
+                    SendData(diff);
+                    diff.Dispose();
+                }
+                previousImageData = imageData;
 
-                //bitmap.Dispose();
                 sample.depth.ReleaseAccess(imageData);
                 senseManager.ReleaseFrame();
 
-                //Thread.Sleep(200);
+                //Thread.Sleep(200); // In future, do once for every time interval
+                break; // Only do this once for now
             }
         }
 
         private Bitmap ThresholdDepth(PXCMImage.ImageData previousDepthData, PXCMImage.ImageData depthData, PXCMCapture.Sample sample)
         {
-            int[] oldValues = new int[sample.depth.info.width * sample.depth.info.height];
-            int[] newValues = new int[sample.depth.info.width * sample.depth.info.height];
+            var size = sample.depth.info.width * sample.depth.info.height;
+            var oldValues = new int[size];
+            var newValues = new int[size];
             var oldDepthValues = previousDepthData.ToIntArray(0, oldValues);
             var newDepthValues = depthData.ToIntArray(0, newValues);
 
-            //int[] diff = 
+            var diff = new int[size];
+            for (var i = 0; i < size; i++)
+            {
+                diff[i] = Math.Abs(oldDepthValues[i] - newDepthValues[i]);
+            }
 
-            var image = (Bitmap) imageConverter.ConvertFrom(newDepthValues);
+            var image = (Bitmap) imageConverter.ConvertFrom(diff);
             return image;
         }
 
