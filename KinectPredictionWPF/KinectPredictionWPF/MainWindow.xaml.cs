@@ -2,22 +2,18 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
 using Microsoft.Kinect;
 using System.ComponentModel;
 using System.IO;
-using System.Runtime.InteropServices;
-using System.Runtime.InteropServices.WindowsRuntime;
-using Windows.Storage.Streams;
+using System.Drawing;
+using System.Drawing.Imaging;
+using Microsoft.Azure.Devices;
+using Microsoft.Azure.Devices.Client;
 
 namespace KinectPredictionWPF
 {
@@ -99,6 +95,10 @@ namespace KinectPredictionWPF
         private ushort[] depthFrameData = null;
         private byte[] depthPixels = null;
 
+        // IoT Hub information
+        private DeviceClient deviceClient;
+        private Thread processingThread;
+
         public MainWindow()
         {
             // Get the Kinect Sensor (only 1 is supported):
@@ -122,7 +122,16 @@ namespace KinectPredictionWPF
             // Open the sensor
             kinectSensor.Open();
 
+            processingThread = new Thread(new ThreadStart(InitIoTHubConnection));
+            processingThread.Start();
+
             InitializeComponent();
+        }
+        
+        public void InitIoTHubConnection()
+        {
+            // Init connection to IoT Hub
+            var device = IoTHub.Instance.AddDeviceAsync("KinectCamera").Result;
         }
 
         private void InfraredButton_Click(object sender, RoutedEventArgs e)
@@ -302,7 +311,7 @@ namespace KinectPredictionWPF
                 FrameDescription depthFrameDescription = depthFrame.FrameDescription;
 
                 // Verify data and write the new infrared frame data to the display bitmap
-                if (((depthFrameDescription.Width * depthFrameDescription.Height) == this.infraredFrameData.Length) &&
+                if (((depthFrameDescription.Width * depthFrameDescription.Height) == this.depthFrameData.Length) &&
                     (depthFrameDescription.Width == this.bitmap.PixelWidth) &&
                     (depthFrameDescription.Height == this.bitmap.PixelHeight))
                 {
@@ -403,6 +412,16 @@ namespace KinectPredictionWPF
 
             // Update the display's bitmap image.
             FrameDisplayImage.Source = this.bitmap;
+        }
+
+        private async void SendData(Bitmap image)
+        {
+            using (var ms = new MemoryStream())
+            {
+                image.Save(ms, ImageFormat.Jpeg);
+                ms.Position = 0;
+                await deviceClient.UploadToBlobAsync(DateTime.Now.ToString("yyyyMMddHHmmss") + ".jpg", ms);
+            }
         }
     }
 }

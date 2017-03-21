@@ -32,27 +32,27 @@ namespace IntelPredictionSandbox
 
             imageConverter = new ImageConverter();
 
-            //senseManager = PXCMSenseManager.CreateInstance();
-            //senseManager.EnableStream(PXCMCapture.StreamType.STREAM_TYPE_DEPTH, 320, 240, 30);
-            //pxcmStatus initStatus = senseManager.Init();
-            //if (initStatus == pxcmStatus.PXCM_STATUS_ITEM_UNAVAILABLE)
-            //{
-            //    // No camera, load data from file...
-            //    OpenFileDialog ofd = new OpenFileDialog();
-            //    ofd.Filter = "RSSDK clip|*.rssdk|All files|*.*";
-            //    ofd.CheckFileExists = true;
-            //    ofd.CheckPathExists = true;
-            //    bool? result = ofd.ShowDialog();
-            //    if (result == true)
-            //    {
-            //        senseManager.captureManager.SetFileName(ofd.FileName, false);
-            //        initStatus = senseManager.Init();
-            //    }
-            //}
-            //if (initStatus < pxcmStatus.PXCM_STATUS_NO_ERROR)
-            //{
-            //    throw new Exception(String.Format("Init failed: {0}", initStatus));
-            //}
+            senseManager = PXCMSenseManager.CreateInstance();
+            senseManager.EnableStream(PXCMCapture.StreamType.STREAM_TYPE_DEPTH, 320, 240, 30);
+            pxcmStatus initStatus = senseManager.Init();
+            if (initStatus == pxcmStatus.PXCM_STATUS_ITEM_UNAVAILABLE)
+            {
+                // No camera, load data from file...
+                OpenFileDialog ofd = new OpenFileDialog();
+                ofd.Filter = "RSSDK clip|*.rssdk|All files|*.*";
+                ofd.CheckFileExists = true;
+                ofd.CheckPathExists = true;
+                bool? result = ofd.ShowDialog();
+                if (result == true)
+                {
+                    senseManager.captureManager.SetFileName(ofd.FileName, false);
+                    initStatus = senseManager.Init();
+                }
+            }
+            if (initStatus < pxcmStatus.PXCM_STATUS_NO_ERROR)
+            {
+                throw new Exception(String.Format("Init failed: {0}", initStatus));
+            }
 
             // Register the device
             //Device device = IoTHub.Instance.AddDeviceAsync(deviceId).Result;
