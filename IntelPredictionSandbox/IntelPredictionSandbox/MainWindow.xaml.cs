@@ -8,6 +8,9 @@ using Microsoft.Azure.Devices.Client;
 using System.IO;
 using System.Drawing.Imaging;
 using Microsoft.Win32;
+using Newtonsoft.Json;
+using System.Text;
+using System.Threading.Tasks;
 
 namespace IntelPredictionSandbox
 {
@@ -56,6 +59,7 @@ namespace IntelPredictionSandbox
             //deviceClient = DeviceClient.Create(IoTHub.Instance.HostName, new DeviceAuthenticationWithRegistrySymmetricKey(deviceId, device.Authentication.SymmetricKey.PrimaryKey), Microsoft.Azure.Devices.Client.TransportType.Mqtt);
             var primaryKey = "Yif0xNK5SFGxb02e3aW+J3vgyFv5TDKIKTIQa+sW4AU=";
             deviceClient = DeviceClient.Create(IoTHub.Instance.HostName, new DeviceAuthenticationWithRegistrySymmetricKey(deviceId, primaryKey), Microsoft.Azure.Devices.Client.TransportType.Http1);
+
 
 
             // Begin processing and uploading data
@@ -161,7 +165,7 @@ namespace IntelPredictionSandbox
             }));
         }
 
-        private async void SendData(Bitmap image)
+        private async Task SendImage(Bitmap image)
         {
             using (var ms = new MemoryStream())
             {
@@ -169,6 +173,19 @@ namespace IntelPredictionSandbox
                 ms.Position = 0;
                 await deviceClient.UploadToBlobAsync(DateTime.Now.ToString("yyyyMMddHHmmss") + ".jpg", ms);
             }
+        }
+
+        private async Task SendCoordinate(int x, int y, int z)
+        {
+            var Coordinate = new
+            {
+                x = x,
+                y = y,
+                z = z
+            };
+            var messageString = JsonConvert.SerializeObject(Coordinate);
+            var message = new Microsoft.Azure.Devices.Client.Message(Encoding.ASCII.GetBytes(messageString));
+            await deviceClient.SendEventAsync(message);
         }
     }
 }

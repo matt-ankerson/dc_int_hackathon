@@ -1,6 +1,5 @@
 ﻿using Microsoft.Azure.Devices;
 using Microsoft.Azure.Devices.Client.Exceptions;
-using System;
 using System.IO;
 using System.Threading.Tasks;
 
