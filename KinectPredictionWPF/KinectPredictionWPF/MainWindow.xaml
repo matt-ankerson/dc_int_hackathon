@@ -48,6 +48,12 @@
                 <TextBlock Text=", FrameHeight =  "/>
                 <TextBlock Text=
                     "{Binding CurrentFrameDescription.Height}"/>
+                <TextBlock FontSize="20" Text=", Nearest X = "/>
+                <TextBlock FontSize="20" Text="{Binding DepthDataPoint.nearest.x}"/>
+                <TextBlock FontSize="20" Text=", Nearest Y = "/>
+                <TextBlock FontSize="20" Text="{Binding DepthDataPoint.nearest.y}"/>
+                <TextBlock FontSize="20" Text=", Nearest Z = "/>
+                <TextBlock FontSize="20" Text="{Binding DepthDataPoint.nearest.z}"/>
             </StackPanel>
             <Image x:Name="FrameDisplayImage" Grid.Row="1" 
                 Stretch="Uniform"/>
