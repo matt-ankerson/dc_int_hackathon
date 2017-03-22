@@ -420,6 +420,7 @@ namespace KinectPredictionWPF
             {
                 image.Save(ms, ImageFormat.Jpeg);
                 ms.Position = 0;
+                // Why are we pushing to blob storage here?
                 await deviceClient.UploadToBlobAsync(DateTime.Now.ToString("yyyyMMddHHmmss") + ".jpg", ms);
             }
         }
