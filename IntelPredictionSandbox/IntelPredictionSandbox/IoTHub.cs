@@ -6,7 +6,6 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
 using System.Text;
-using System.Threading;
 using System.Threading.Tasks;
 
 namespace IntelPredictionSandbox
@@ -32,7 +31,7 @@ namespace IntelPredictionSandbox
             registryManager = RegistryManager.CreateFromConnectionString(ConnectionString);
         }
 
-        public async Task<Device> AddDeviceAsync(string deviceId)
+        public async Task<DeviceClient> AddDeviceAsync(string deviceId)
         {
             Device device;
             try
@@ -43,7 +42,7 @@ namespace IntelPredictionSandbox
             {
                 device = await registryManager.GetDeviceAsync(deviceId);
             }
-            return device;
+            return DeviceClient.Create(HostName, new DeviceAuthenticationWithRegistrySymmetricKey(deviceId, device.Authentication.SymmetricKey.PrimaryKey), Microsoft.Azure.Devices.Client.TransportType.Mqtt);
         }
 
         public async Task SendStringToHub(DeviceClient deviceClient, string str)

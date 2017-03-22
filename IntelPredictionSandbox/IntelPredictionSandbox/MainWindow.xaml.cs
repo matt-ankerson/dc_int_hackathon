@@ -63,8 +63,7 @@ namespace IntelPredictionSandbox
 
         private void ProcessingThread()
         {
-            Device device = IoTHub.Instance.AddDeviceAsync(deviceId).Result;
-            deviceClient = DeviceClient.Create(IoTHub.Instance.HostName, new DeviceAuthenticationWithRegistrySymmetricKey(deviceId, device.Authentication.SymmetricKey.PrimaryKey), Microsoft.Azure.Devices.Client.TransportType.Mqtt);
+            deviceClient = IoTHub.Instance.AddDeviceAsync(deviceId).Result;
             ProcessDepth();
         }
 
