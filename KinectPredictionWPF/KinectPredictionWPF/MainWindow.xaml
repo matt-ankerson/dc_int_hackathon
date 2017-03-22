@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:KinectPredictionWPF"
         mc:Ignorable="d"
-        Title="MainWindow" Height="350" Width="525">
+        Title="MainWindow" Height="800" Width="1000">
     <Window.Resources>
         <LinearGradientBrush x:Key="ButtonGradientBrush" 
                 StartPoint="0,0" EndPoint="0,1" >
@@ -42,12 +42,18 @@
                         VerticalAlignment="Bottom">
                 <TextBlock Text="Kinect Status:  "/>
                 <TextBlock Text="{Binding StatusText}"/>
-                <TextBlock Text=", FrameWidth =  "/>
-                <TextBlock Text=
-                    "{Binding CurrentFrameDescription.Width}"/>
-                <TextBlock Text=", FrameHeight =  "/>
-                <TextBlock Text=
-                    "{Binding CurrentFrameDescription.Height}"/>
+                <TextBlock FontSize="11" Text=", Nearest X = "/>
+                <TextBlock FontSize="11" Text="{Binding DepthDataPoint.nearest.x}"/>
+                <TextBlock FontSize="11" Text=", Nearest Y = "/>
+                <TextBlock FontSize="11" Text="{Binding DepthDataPoint.nearest.y}"/>
+                <TextBlock FontSize="11" Text=", Nearest Z = "/>
+                <TextBlock FontSize="11" Text="{Binding DepthDataPoint.nearest.z}"/>
+                <TextBlock FontSize="11" Text=", Farthest X = "/>
+                <TextBlock FontSize="11" Text="{Binding DepthDataPoint.farthest.x}"/>
+                <TextBlock FontSize="11" Text=", Farthest Y = "/>
+                <TextBlock FontSize="11" Text="{Binding DepthDataPoint.farthest.y}"/>
+                <TextBlock FontSize="11" Text=", Farthest Z = "/>
+                <TextBlock FontSize="11" Text="{Binding DepthDataPoint.farthest.z}"/>
             </StackPanel>
             <Image x:Name="FrameDisplayImage" Grid.Row="1" 
                 Stretch="Uniform"/>
@@ -64,6 +70,11 @@
                     <Button Content="Depth" 
                         Style="{StaticResource FrameSelectorButtonStyle}"
                         Click="DepthButton_Click"/>
+                    <TextBlock FontSize="20" VerticalAlignment="Center" Text="Out of Bed?"/>
+                    <CheckBox VerticalAlignment="Center" IsChecked="{Binding DepthDataPoint.outOfBed }" />
+                    <TextBlock VerticalAlignment="Center" FontSize="11" Text="("/>
+                    <TextBlock VerticalAlignment="Center" FontSize="11" Text="{Binding DepthDataPoint.outOfBed }"/>
+                    <TextBlock VerticalAlignment="Center" FontSize="11" Text=")"/>
                 </StackPanel>
             </ScrollViewer>
         </Grid>

@@ -14,6 +14,7 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using Microsoft.Azure.Devices;
 using Microsoft.Azure.Devices.Client;
+using Newtonsoft.Json;
 
 namespace KinectPredictionWPF
 {
@@ -24,12 +25,30 @@ namespace KinectPredictionWPF
         Depth
     }
 
+    public class DataPoint
+    {
+        public Coordinate nearest { get; set; }
+        public Coordinate farthest { get; set; }
+        public double averageDepth { get; set; }
+
+        public DateTime timeStamp { get; set; }
+
+        public bool outOfBed { get; set; }
+    }
+
+    public class Coordinate
+    {
+        public double x { get; set; }
+        public double y { get; set; }
+        public double z { get; set; }
+    }
+
     /// <summary>
     /// Interaction logic for MainWindow.xaml
     /// </summary>
     public partial class MainWindow : Window, INotifyPropertyChanged
     {
-        private const DisplayFrameType DEFAULT_DISPLAYFRAMETYPE = DisplayFrameType.Color;
+        private const DisplayFrameType DEFAULT_DISPLAYFRAMETYPE = DisplayFrameType.Depth;
         private FrameDescription currentFrameDescription;
         private DisplayFrameType currentDisplayFrameType;
         private string statusText = null;
@@ -95,9 +114,47 @@ namespace KinectPredictionWPF
         private ushort[] depthFrameData = null;
         private byte[] depthPixels = null;
 
+        // Depth frame analysis
+        private ushort averageDistance = 0;
+        private DataPoint depthDataPoint = new DataPoint { outOfBed = false };
+
+        private int framesProcessed = 0;
+
+        public DataPoint DepthDataPoint
+        {
+            get { return this.depthDataPoint; }
+            set
+            {
+                if (this.depthDataPoint != value)
+                {
+                    this.depthDataPoint = value;
+                    if (this.PropertyChanged != null)
+                    {
+                        this.PropertyChanged(this, new PropertyChangedEventArgs("DepthDataPoint"));
+                    }
+                }
+            }
+        }
+
+        public ushort AverageDistance
+        {
+            get { return this.averageDistance; }
+            set
+            {
+                if (this.averageDistance != value)
+                {
+                    this.averageDistance = value;
+                    if (this.PropertyChanged != null)
+                    {
+                        this.PropertyChanged(this, new PropertyChangedEventArgs("AverageDistance"));
+                    }
+                }
+            }
+        }
+
         // IoT Hub information
         private DeviceClient deviceClient;
-        private Thread processingThread;
+        // private Thread processingThread;
 
         public MainWindow()
         {
@@ -122,7 +179,7 @@ namespace KinectPredictionWPF
             // Open the sensor
             kinectSensor.Open();
 
-            processingThread = new Thread(new ThreadStart(InitIoTHubConnection));
+            var processingThread = new Thread(new ThreadStart(InitIoTHubConnection));
             processingThread.Start();
 
             InitializeComponent();
@@ -321,6 +378,8 @@ namespace KinectPredictionWPF
                     minDepth = depthFrame.DepthMinReliableDistance;
                     maxDepth = depthFrame.DepthMaxReliableDistance;
 
+                    ExtractDepthMetrics(depthFrameDescription.Width, depthFrameDescription.Height);
+
                     depthFrameProcessed = true;
                 }
             }
@@ -331,6 +390,53 @@ namespace KinectPredictionWPF
                 ConvertDepthDataToPixels(minDepth, maxDepth);
                 RenderPixelArray(this.depthPixels);
             }
+        }
+
+        private void ExtractDepthMetrics(int frameWidth, int frameHeight)
+        {
+            // Get indexes of nearest and farthest values.
+            // This allows us to get the values, and the pixel coordinates.
+            int nearestIndex = Array.IndexOf(this.depthFrameData, this.depthFrameData.Where(x => x > 0).Min());
+            int farthestIndex = Array.IndexOf(this.depthFrameData, this.depthFrameData.Max());
+
+            DepthDataPoint = new DataPoint
+            {
+                averageDepth = (ushort)this.depthFrameData.Select(x => (double)x).Average(),
+                timeStamp = DateTime.UtcNow,
+                outOfBed = DepthDataPoint.outOfBed,
+                nearest = new Coordinate
+                {
+                    x = (nearestIndex % frameWidth) / (double)frameWidth,
+                    y = (nearestIndex / frameHeight) / (double)frameHeight,
+                    z = this.depthFrameData[nearestIndex]
+                },
+                farthest = new Coordinate
+                {
+                    x = (farthestIndex % frameWidth) / (double)frameWidth,
+                    y = (farthestIndex / frameHeight) / (double)frameHeight,
+                    z = this.depthFrameData[farthestIndex]
+                }
+            };
+
+            // Push data point to IoT Hub (every 10th frame)
+            if (this.framesProcessed % 30 == 0)
+            {
+                // Launch a new thread to do push out a message.
+                var backgroundThread = new Thread(new ThreadStart(SendDataPoint));
+                backgroundThread.Start();
+            }
+
+            // Don't let the integer count overflow
+            if (this.framesProcessed > 1000)
+            {
+                this.framesProcessed = 0;
+            }
+        }
+
+        private void SendDataPoint()
+        {
+            var messagePayload = JsonConvert.SerializeObject(this.DepthDataPoint);
+            var sendResult = IoTHub.Instance.SendStringToHub(messagePayload).Result;
         }
 
         /// <summary>
