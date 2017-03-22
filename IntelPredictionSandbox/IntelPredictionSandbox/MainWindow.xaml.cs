@@ -11,6 +11,7 @@ using Microsoft.Win32;
 using Newtonsoft.Json;
 using System.Text;
 using System.Threading.Tasks;
+using System.Linq;
 
 namespace IntelPredictionSandbox
 {
@@ -32,6 +33,7 @@ namespace IntelPredictionSandbox
 
             imageConverter = new ImageConverter();
 
+            // Init the video stream
             senseManager = PXCMSenseManager.CreateInstance();
             senseManager.EnableStream(PXCMCapture.StreamType.STREAM_TYPE_DEPTH, 320, 240, 30);
             pxcmStatus initStatus = senseManager.Init();
@@ -55,45 +57,42 @@ namespace IntelPredictionSandbox
             }
 
             // Register the device
-            //Device device = IoTHub.Instance.AddDeviceAsync(deviceId).Result;
-            //deviceClient = DeviceClient.Create(IoTHub.Instance.HostName, new DeviceAuthenticationWithRegistrySymmetricKey(deviceId, device.Authentication.SymmetricKey.PrimaryKey), Microsoft.Azure.Devices.Client.TransportType.Mqtt);
-            var primaryKey = "Yif0xNK5SFGxb02e3aW+J3vgyFv5TDKIKTIQa+sW4AU=";
-            deviceClient = DeviceClient.Create(IoTHub.Instance.HostName, new DeviceAuthenticationWithRegistrySymmetricKey(deviceId, primaryKey), Microsoft.Azure.Devices.Client.TransportType.Http1);
+            //Thread registrationThread = new Thread(new ThreadStart(RegisterDevice));
+            //registrationThread.Start();
 
-
+            //var primaryKey = "Yif0xNK5SFGxb02e3aW+J3vgyFv5TDKIKTIQa+sW4AU=";
+            //deviceClient = DeviceClient.Create(IoTHub.Instance.HostName, new DeviceAuthenticationWithRegistrySymmetricKey(deviceId, primaryKey), Microsoft.Azure.Devices.Client.TransportType.Http1);
 
             // Begin processing and uploading data
             processingThread = new Thread(new ThreadStart(ProcessingDepthThread));
             processingThread.Start();
         }
 
+        private void RegisterDevice()
+        {
+            Device device = IoTHub.Instance.AddDeviceAsync(deviceId).Result;
+            deviceClient = DeviceClient.Create(IoTHub.Instance.HostName, new DeviceAuthenticationWithRegistrySymmetricKey(deviceId, device.Authentication.SymmetricKey.PrimaryKey), Microsoft.Azure.Devices.Client.TransportType.Mqtt);
+        }
+
         private void ProcessingDepthThread()
         {
             PXCMCapture.Sample sample;
             PXCMImage.ImageData imageData;
-            PXCMImage.ImageData previousImageData = null;
             while (senseManager.AcquireFrame(true) >= pxcmStatus.PXCM_STATUS_NO_ERROR)
             {
                 sample = senseManager.QuerySample();
+                //PXCMCaptureSample sample = senseManager.QueryBlobSample();
+                //blobData.Query
                 sample.depth.AcquireAccess(PXCMImage.Access.ACCESS_READ, PXCMImage.PixelFormat.PIXEL_FORMAT_DEPTH, out imageData);
 
                 var image = ConvertDepthToBitmap(imageData, sample);
-
-                //if (previousImageData != null)
-                //{
-                //    var diff = ThresholdDepth(previousImageData, imageData, sample);
-                //    //UpdateUI(diff);
-                //    SendData(diff);
-                //    diff.Dispose();
-                //}
-                previousImageData = imageData;
 
                 UpdateUI(image);
 
                 sample.depth.ReleaseAccess(imageData);
                 senseManager.ReleaseFrame();
 
-                //Thread.Sleep(200); // In future, do once for every time interval
+                Thread.Sleep(TimeSpan.FromSeconds(0.5));
             }
         }
 
@@ -109,13 +108,27 @@ namespace IntelPredictionSandbox
             var maxDistance = 2000; // mm
             float scale = 255.0f / (maxDistance - minDistance);
 
-            int i = 0;
-            for (var y = 0; y < sample.depth.info.height; y++)
+            var dataPoint = new DataPoint
             {
-                for (var x = 0; x < sample.depth.info.width; x++)
+                nearest = new Coordinate { x = -1, y = -1, z = short.MaxValue },
+                farthest = new Coordinate { x = -1, y = -1, z = short.MinValue }
+            };
+            var i = 0;
+            var sum = 0.0;
+            var width = sample.depth.info.width;
+            var height = sample.depth.info.height;
+            for (var y = 0; y < height; y++)
+            {
+                for (var x = 0; x < width; x++)
                 {
                     var distance = depthValues[i++]; // mm
                     var brightness = 0;
+
+                    if (distance > 0 && distance < dataPoint.nearest.z)
+                        dataPoint.nearest = new Coordinate { x = (double) x / width, y = (double) y / height, z = distance };
+                    if (distance > dataPoint.farthest.z)
+                        dataPoint.farthest = new Coordinate { x = (double) x / width, y = (double) y / height, z = distance };
+                    sum += distance;
 
                     if (distance > minDistance && distance < maxDistance)
                     {
@@ -125,25 +138,17 @@ namespace IntelPredictionSandbox
                     bmp.SetPixel(x, y, color);
                 }
             }
+
+            if (dataPoint.nearest.z == short.MaxValue)
+                dataPoint.nearest = null;
+            if (dataPoint.farthest.z == short.MinValue)
+                dataPoint.farthest = null;
+            dataPoint.averageDepth = sum / size;
+            dataPoint.isGettingUp = true;
+            dataPoint.timeStamp = DateTime.Now;
+            SaveDataPoint(dataPoint);
+
             return bmp;
-        }
-
-        private Bitmap ThresholdDepth(PXCMImage.ImageData previousDepthData, PXCMImage.ImageData depthData, PXCMCapture.Sample sample)
-        {
-            var size = sample.depth.info.width * sample.depth.info.height;
-            var oldValues = new int[size];
-            var newValues = new int[size];
-            var oldDepthValues = previousDepthData.ToIntArray(0, oldValues);
-            var newDepthValues = depthData.ToIntArray(0, newValues);
-
-            var diff = new int[size];
-            for (var i = 0; i < size; i++)
-            {
-                diff[i] = Math.Abs(oldDepthValues[i] - newDepthValues[i]);
-            }
-
-            var image = (Bitmap) imageConverter.ConvertFrom(diff);
-            return image;
         }
 
         private void UpdateUI(Bitmap bitmap)
@@ -165,7 +170,7 @@ namespace IntelPredictionSandbox
             }));
         }
 
-        private async Task SendImage(Bitmap image)
+        private async Task SendImageToBlobStorage(Bitmap image)
         {
             using (var ms = new MemoryStream())
             {
@@ -175,17 +180,40 @@ namespace IntelPredictionSandbox
             }
         }
 
-        private async Task SendCoordinate(int x, int y, int z)
+        private async Task SendStringToHub(string str)
         {
-            var Coordinate = new
-            {
-                x = x,
-                y = y,
-                z = z
-            };
-            var messageString = JsonConvert.SerializeObject(Coordinate);
-            var message = new Microsoft.Azure.Devices.Client.Message(Encoding.ASCII.GetBytes(messageString));
+            var message = new Microsoft.Azure.Devices.Client.Message(Encoding.ASCII.GetBytes(str));
             await deviceClient.SendEventAsync(message);
         }
+
+        private async Task SendDataPoint(DataPoint dataPoint)
+        {
+            var messageString = JsonConvert.SerializeObject(dataPoint);
+            await SendStringToHub(messageString);
+        }
+
+        private void SaveDataPoint(DataPoint dataPoint)
+        {
+            var messageString = JsonConvert.SerializeObject(dataPoint);
+
+            string filePath = @"C:\Users\HaydonB\Desktop\points2.txt";
+            if (File.Exists(filePath))
+                using (StreamWriter sw = File.AppendText(filePath))
+                    sw.WriteLine(messageString);
+        }
+
+        //private void Blob()
+        //{
+        //    PXCMBlobModule blobModule = senseManager.QueryBlob();
+        //    PXCMBlobConfiguration blobConfiguration = blobModule.CreateActiveConfiguration();
+        //    PXCMBlobData blobData = blobModule.CreateOutput();
+
+        //    senseManager.AcquireFrame(true);
+        //    PXCMCapture.Sample sample = senseManager.QueryBlobSample();
+        //    blobConfiguration.SetBlobSmoothing(1);
+
+
+        //    //blobSample.depth
+        //}
     }
 }
