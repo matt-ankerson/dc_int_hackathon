@@ -31,7 +31,7 @@ namespace KinectPredictionWPF
         public Coordinate farthest { get; set; }
         public double averageDepth { get; set; }
 
-        public DateTimeOffset timeStamp { get; set; }
+        public DateTime timeStamp { get; set; }
 
         public bool outOfBed { get; set; }
     }
@@ -48,7 +48,7 @@ namespace KinectPredictionWPF
     /// </summary>
     public partial class MainWindow : Window, INotifyPropertyChanged
     {
-        private const DisplayFrameType DEFAULT_DISPLAYFRAMETYPE = DisplayFrameType.Color;
+        private const DisplayFrameType DEFAULT_DISPLAYFRAMETYPE = DisplayFrameType.Depth;
         private FrameDescription currentFrameDescription;
         private DisplayFrameType currentDisplayFrameType;
         private string statusText = null;
@@ -116,7 +116,7 @@ namespace KinectPredictionWPF
 
         // Depth frame analysis
         private ushort averageDistance = 0;
-        private DataPoint depthDataPoint;
+        private DataPoint depthDataPoint = new DataPoint { outOfBed = false };
 
         private int framesProcessed = 0;
 
@@ -154,7 +154,7 @@ namespace KinectPredictionWPF
 
         // IoT Hub information
         private DeviceClient deviceClient;
-        private Thread processingThread;
+        // private Thread processingThread;
 
         public MainWindow()
         {
@@ -179,7 +179,7 @@ namespace KinectPredictionWPF
             // Open the sensor
             kinectSensor.Open();
 
-            processingThread = new Thread(new ThreadStart(InitIoTHubConnection));
+            var processingThread = new Thread(new ThreadStart(InitIoTHubConnection));
             processingThread.Start();
 
             InitializeComponent();
@@ -402,7 +402,8 @@ namespace KinectPredictionWPF
             DepthDataPoint = new DataPoint
             {
                 averageDepth = (ushort)this.depthFrameData.Select(x => (double)x).Average(),
-                timeStamp = DateTimeOffset.UtcNow,
+                timeStamp = DateTime.UtcNow,
+                outOfBed = DepthDataPoint.outOfBed,
                 nearest = new Coordinate
                 {
                     x = (nearestIndex % frameWidth) / (double)frameWidth,
@@ -421,8 +422,8 @@ namespace KinectPredictionWPF
             if (this.framesProcessed % 30 == 0)
             {
                 // Launch a new thread to do push out a message.
-                processingThread = new Thread(new ThreadStart(SendDataPoint));
-                processingThread.Start();
+                var backgroundThread = new Thread(new ThreadStart(SendDataPoint));
+                backgroundThread.Start();
             }
 
             // Don't let the integer count overflow
