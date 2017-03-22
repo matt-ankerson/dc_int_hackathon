@@ -11,7 +11,6 @@ using Microsoft.Win32;
 using Newtonsoft.Json;
 using System.Text;
 using System.Threading.Tasks;
-using System.Linq;
 
 namespace IntelPredictionSandbox
 {
@@ -26,6 +25,8 @@ namespace IntelPredictionSandbox
         private Thread processingThread;
         private DeviceClient deviceClient;
         private ImageConverter imageConverter;
+
+        private bool OutOfBed { get; set; }
 
         public MainWindow()
         {
@@ -57,8 +58,8 @@ namespace IntelPredictionSandbox
             }
 
             // Register the device
-            //Thread registrationThread = new Thread(new ThreadStart(RegisterDevice));
-            //registrationThread.Start();
+            Thread registrationThread = new Thread(new ThreadStart(RegisterDevice));
+            registrationThread.Start();
 
             //var primaryKey = "Yif0xNK5SFGxb02e3aW+J3vgyFv5TDKIKTIQa+sW4AU=";
             //deviceClient = DeviceClient.Create(IoTHub.Instance.HostName, new DeviceAuthenticationWithRegistrySymmetricKey(deviceId, primaryKey), Microsoft.Azure.Devices.Client.TransportType.Http1);
@@ -144,9 +145,9 @@ namespace IntelPredictionSandbox
             if (dataPoint.farthest.z == short.MinValue)
                 dataPoint.farthest = null;
             dataPoint.averageDepth = sum / size;
-            dataPoint.isGettingUp = true;
-            dataPoint.timeStamp = DateTime.Now;
-            SaveDataPoint(dataPoint);
+            dataPoint.outOfBed = OutOfBed;
+            dataPoint.timeStamp = DateTime.UtcNow;
+            SendDataPoint(dataPoint);
 
             return bmp;
         }
@@ -200,6 +201,11 @@ namespace IntelPredictionSandbox
             if (File.Exists(filePath))
                 using (StreamWriter sw = File.AppendText(filePath))
                     sw.WriteLine(messageString);
+        }
+
+        private void Button_Click(object sender, RoutedEventArgs e)
+        {
+            OutOfBed = !OutOfBed;
         }
 
         //private void Blob()

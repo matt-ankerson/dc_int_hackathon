@@ -10,7 +10,7 @@ namespace IntelPredictionSandbox
 
         public DateTimeOffset timeStamp { get; set; }
 
-        public bool isGettingUp { get; set; }
+        public bool outOfBed { get; set; }
     }
 
     public class Coordinate

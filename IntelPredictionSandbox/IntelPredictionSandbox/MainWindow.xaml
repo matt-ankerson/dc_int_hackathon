@@ -6,7 +6,8 @@
         xmlns:local="clr-namespace:IntelPredictionSandbox"
         mc:Ignorable="d"
         Title="MainWindow" Height="350" Width="525">
-    <Grid>
-        <Image Name="Feed" />
-    </Grid>
+	<Grid>
+		<Image Name="Feed" />
+		<Button Width="20" Height="20" Click="Button_Click" />
+	</Grid>
 </Window>
