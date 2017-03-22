@@ -179,8 +179,7 @@ namespace KinectPredictionWPF
             // Open the sensor
             kinectSensor.Open();
 
-            var processingThread = new Thread(new ThreadStart(InitIoTHubConnection));
-            processingThread.Start();
+            new Thread(InitIoTHubConnection).Start();
 
             InitializeComponent();
         }
@@ -422,8 +421,7 @@ namespace KinectPredictionWPF
             if (this.framesProcessed % 30 == 0)
             {
                 // Launch a new thread to do push out a message.
-                var backgroundThread = new Thread(new ThreadStart(SendDataPoint));
-                backgroundThread.Start();
+                new Thread(SendDataPoint).Start();
             }
 
             // Don't let the integer count overflow
