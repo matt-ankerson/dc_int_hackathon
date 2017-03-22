@@ -37,22 +37,22 @@
             </Grid.RowDefinitions>
             <TextBlock Grid.Row="0" 
                        Text="Kinect For Windows 2"/>
-            <StackPanel Grid.Row="0" Orientation="Horizontal" 
-                        HorizontalAlignment="Right" 
-                        VerticalAlignment="Bottom">
+            <StackPanel Grid.Row="1" Orientation="Vertical" 
+                        HorizontalAlignment="Left" 
+                        VerticalAlignment="Top">
                 <TextBlock Text="Kinect Status:  "/>
                 <TextBlock Text="{Binding StatusText}"/>
-                <TextBlock FontSize="11" Text=", Nearest X = "/>
+                <TextBlock FontSize="11" Text="Nearest X: "/>
                 <TextBlock FontSize="11" Text="{Binding DepthDataPoint.nearest.x}"/>
-                <TextBlock FontSize="11" Text=", Nearest Y = "/>
+                <TextBlock FontSize="11" Text="Nearest Y: "/>
                 <TextBlock FontSize="11" Text="{Binding DepthDataPoint.nearest.y}"/>
-                <TextBlock FontSize="11" Text=", Nearest Z = "/>
+                <TextBlock FontSize="11" Text="Nearest Z: "/>
                 <TextBlock FontSize="11" Text="{Binding DepthDataPoint.nearest.z}"/>
-                <TextBlock FontSize="11" Text=", Farthest X = "/>
+                <TextBlock FontSize="11" Text="Farthest X: "/>
                 <TextBlock FontSize="11" Text="{Binding DepthDataPoint.farthest.x}"/>
-                <TextBlock FontSize="11" Text=", Farthest Y = "/>
+                <TextBlock FontSize="11" Text="Farthest Y: "/>
                 <TextBlock FontSize="11" Text="{Binding DepthDataPoint.farthest.y}"/>
-                <TextBlock FontSize="11" Text=", Farthest Z = "/>
+                <TextBlock FontSize="11" Text="Farthest Z: "/>
                 <TextBlock FontSize="11" Text="{Binding DepthDataPoint.farthest.z}"/>
             </StackPanel>
             <Image x:Name="FrameDisplayImage" Grid.Row="1" 
@@ -61,18 +61,9 @@
             ScrollViewer.HorizontalScrollBarVisibility="Auto" 
             ScrollViewer.VerticalScrollBarVisibility="Auto">
                 <StackPanel Orientation="Horizontal">
-                    <Button Content="Infrared" Style="{StaticResource 
- 			FrameSelectorButtonStyle}"
-                        Click="InfraredButton_Click"/>
-                    <Button Content="Color" Style="{StaticResource 
-                        FrameSelectorButtonStyle}" 
-                        Click="ColorButton_Click"/>
-                    <Button Content="Depth" 
-                        Style="{StaticResource FrameSelectorButtonStyle}"
-                        Click="DepthButton_Click"/>
-                    <TextBlock FontSize="20" VerticalAlignment="Center" Text="Out of Bed?"/>
+                    <TextBlock FontSize="20" VerticalAlignment="Center" Text="Out of Bed? "/>
                     <CheckBox VerticalAlignment="Center" IsChecked="{Binding DepthDataPoint.outOfBed }" />
-                    <TextBlock VerticalAlignment="Center" FontSize="11" Text="("/>
+                    <TextBlock VerticalAlignment="Center" FontSize="11" Text="  ("/>
                     <TextBlock VerticalAlignment="Center" FontSize="11" Text="{Binding DepthDataPoint.outOfBed }"/>
                     <TextBlock VerticalAlignment="Center" FontSize="11" Text=")"/>
                 </StackPanel>
