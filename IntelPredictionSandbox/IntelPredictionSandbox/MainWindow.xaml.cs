@@ -6,27 +6,21 @@ using System.Drawing;
 using Microsoft.Azure.Devices;
 using Microsoft.Azure.Devices.Client;
 using System.IO;
-using System.Drawing.Imaging;
 using Microsoft.Win32;
 using Newtonsoft.Json;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace IntelPredictionSandbox
 {
-    /// <summary>
-    /// Interaction logic for MainWindow.xaml
-    /// </summary>
     public partial class MainWindow : Window
     {
         private const string deviceId = "Bed1";
 
         private PXCMSenseManager senseManager;
-        private Thread processingThread;
         private DeviceClient deviceClient;
         private ImageConverter imageConverter;
 
-        private bool OutOfBed { get; set; }
+        public bool OutOfBed { get; set; }
 
         public MainWindow()
         {
@@ -34,7 +28,16 @@ namespace IntelPredictionSandbox
 
             imageConverter = new ImageConverter();
 
-            // Init the video stream
+            InitVideoStream();
+
+            Thread processingThread = new Thread(new ThreadStart(ProcessingThread));
+            processingThread.Start();
+
+            //Blob();
+        }
+
+        private void InitVideoStream()
+        {
             senseManager = PXCMSenseManager.CreateInstance();
             senseManager.EnableStream(PXCMCapture.StreamType.STREAM_TYPE_DEPTH, 320, 240, 30);
             pxcmStatus initStatus = senseManager.Init();
@@ -56,34 +59,22 @@ namespace IntelPredictionSandbox
             {
                 throw new Exception(String.Format("Init failed: {0}", initStatus));
             }
-
-            // Register the device
-            Thread registrationThread = new Thread(new ThreadStart(RegisterDevice));
-            registrationThread.Start();
-
-            //var primaryKey = "Yif0xNK5SFGxb02e3aW+J3vgyFv5TDKIKTIQa+sW4AU=";
-            //deviceClient = DeviceClient.Create(IoTHub.Instance.HostName, new DeviceAuthenticationWithRegistrySymmetricKey(deviceId, primaryKey), Microsoft.Azure.Devices.Client.TransportType.Http1);
-
-            // Begin processing and uploading data
-            processingThread = new Thread(new ThreadStart(ProcessingDepthThread));
-            processingThread.Start();
         }
 
-        private void RegisterDevice()
+        private void ProcessingThread()
         {
             Device device = IoTHub.Instance.AddDeviceAsync(deviceId).Result;
             deviceClient = DeviceClient.Create(IoTHub.Instance.HostName, new DeviceAuthenticationWithRegistrySymmetricKey(deviceId, device.Authentication.SymmetricKey.PrimaryKey), Microsoft.Azure.Devices.Client.TransportType.Mqtt);
+            ProcessDepth();
         }
 
-        private void ProcessingDepthThread()
+        private void ProcessDepth()
         {
             PXCMCapture.Sample sample;
             PXCMImage.ImageData imageData;
             while (senseManager.AcquireFrame(true) >= pxcmStatus.PXCM_STATUS_NO_ERROR)
             {
                 sample = senseManager.QuerySample();
-                //PXCMCaptureSample sample = senseManager.QueryBlobSample();
-                //blobData.Query
                 sample.depth.AcquireAccess(PXCMImage.Access.ACCESS_READ, PXCMImage.PixelFormat.PIXEL_FORMAT_DEPTH, out imageData);
 
                 var image = ConvertDepthToBitmap(imageData, sample);
@@ -152,6 +143,22 @@ namespace IntelPredictionSandbox
             return bmp;
         }
 
+        private async Task SendDataPoint(DataPoint dataPoint)
+        {
+            var messageString = JsonConvert.SerializeObject(dataPoint);
+            await IoTHub.Instance.SendStringToHub(deviceClient, messageString);
+        }
+
+        private void SaveDataPoint(DataPoint dataPoint)
+        {
+            var messageString = JsonConvert.SerializeObject(dataPoint);
+
+            string filePath = @"C:\Users\HaydonB\Desktop\points2.txt";
+            if (File.Exists(filePath))
+                using (StreamWriter sw = File.AppendText(filePath))
+                    sw.WriteLine(messageString);
+        }
+
         private void UpdateUI(Bitmap bitmap)
         {
             Dispatcher.Invoke(System.Windows.Threading.DispatcherPriority.Normal, new Action(delegate ()
@@ -171,38 +178,6 @@ namespace IntelPredictionSandbox
             }));
         }
 
-        private async Task SendImageToBlobStorage(Bitmap image)
-        {
-            using (var ms = new MemoryStream())
-            {
-                image.Save(ms, ImageFormat.Jpeg);
-                ms.Position = 0;
-                await deviceClient.UploadToBlobAsync(DateTime.Now.ToString("yyyyMMddHHmmss") + ".jpg", ms);
-            }
-        }
-
-        private async Task SendStringToHub(string str)
-        {
-            var message = new Microsoft.Azure.Devices.Client.Message(Encoding.ASCII.GetBytes(str));
-            await deviceClient.SendEventAsync(message);
-        }
-
-        private async Task SendDataPoint(DataPoint dataPoint)
-        {
-            var messageString = JsonConvert.SerializeObject(dataPoint);
-            await SendStringToHub(messageString);
-        }
-
-        private void SaveDataPoint(DataPoint dataPoint)
-        {
-            var messageString = JsonConvert.SerializeObject(dataPoint);
-
-            string filePath = @"C:\Users\HaydonB\Desktop\points2.txt";
-            if (File.Exists(filePath))
-                using (StreamWriter sw = File.AppendText(filePath))
-                    sw.WriteLine(messageString);
-        }
-
         private void Button_Click(object sender, RoutedEventArgs e)
         {
             OutOfBed = !OutOfBed;
@@ -217,9 +192,14 @@ namespace IntelPredictionSandbox
         //    senseManager.AcquireFrame(true);
         //    PXCMCapture.Sample sample = senseManager.QueryBlobSample();
         //    blobConfiguration.SetBlobSmoothing(1);
+        //    blobConfiguration.SetMaxDistance(1500);
+        //    blobConfiguration.SetMaxBlobs(1);
 
+        //    blobConfiguration.EnableContourExtraction(true);
+        //    blobConfiguration.EnableSegmentationImage(true);
+        //    blobConfiguration.ApplyChanges();
 
-        //    //blobSample.depth
+        //    blobData.Update();
         //}
     }
 }

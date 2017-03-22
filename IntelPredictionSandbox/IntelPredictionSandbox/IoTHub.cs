@@ -1,7 +1,12 @@
 ﻿using Microsoft.Azure.Devices;
+using Microsoft.Azure.Devices.Client;
 using Microsoft.Azure.Devices.Common.Exceptions;
 using System;
+using System.Drawing;
+using System.Drawing.Imaging;
 using System.IO;
+using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace IntelPredictionSandbox
@@ -39,6 +44,22 @@ namespace IntelPredictionSandbox
                 device = await registryManager.GetDeviceAsync(deviceId);
             }
             return device;
+        }
+
+        public async Task SendStringToHub(DeviceClient deviceClient, string str)
+        {
+            var message = new Microsoft.Azure.Devices.Client.Message(Encoding.ASCII.GetBytes(str));
+            await deviceClient.SendEventAsync(message);
+        }
+
+        public async Task SendImageToBlobStorage(DeviceClient deviceClient, Bitmap image)
+        {
+            using (var ms = new MemoryStream())
+            {
+                image.Save(ms, ImageFormat.Jpeg);
+                ms.Position = 0;
+                await deviceClient.UploadToBlobAsync(DateTime.Now.ToString("yyyyMMddHHmmss") + ".jpg", ms);
+            }
         }
     }
 }
