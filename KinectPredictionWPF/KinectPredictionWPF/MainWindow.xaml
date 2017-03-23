@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:KinectPredictionWPF"
         mc:Ignorable="d"
-        Title="MainWindow" Height="800" Width="1000">
+        Title="MainWindow" Height="800" Width="1200" Background="{Binding ColourIndicator}">
     <Window.Resources>
         <LinearGradientBrush x:Key="ButtonGradientBrush" 
                 StartPoint="0,0" EndPoint="0,1" >
@@ -38,7 +38,8 @@
             </Grid.RowDefinitions>
             <StackPanel Grid.Row="0" Orientation="Horizontal">
                 <CheckBox VerticalAlignment="Center" IsChecked="{Binding DepthDataPoint.outOfBed }" />
-                <TextBlock FontSize="20" VerticalAlignment="Center" Text=" Is out of bed? (use this to label training data)"/>
+                <TextBlock FontSize="20" VerticalAlignment="Center" Text=" Is out of bed? "/>
+                <TextBlock FontSize="12" VerticalAlignment="Center" Text=" (use this to label training data)"/>
             </StackPanel>
             <StackPanel Grid.Row="1" Orientation="Vertical" 
                         HorizontalAlignment="Left" 
@@ -62,6 +63,14 @@
             </StackPanel>
             <Image x:Name="FrameDisplayImage" Grid.Row="1" 
                 Stretch="Uniform"/>
+            <StackPanel Grid.Row="1" Orientation="Vertical" 
+                        HorizontalAlignment="Right" 
+                        VerticalAlignment="Top">
+                <TextBlock FontSize="11" Text="Training data points sent to IoT Hub: "/>
+                <TextBlock FontSize="11" Text="{Binding MessagesSent}"/>
+                <TextBlock FontSize="11" Text="Predictions recieved from Azure ML: "/>
+                <TextBlock FontSize="11" Text="{Binding PredictionsRecieved}"/>
+            </StackPanel>
             <ScrollViewer Grid.Row="2" 
             ScrollViewer.HorizontalScrollBarVisibility="Auto" 
             ScrollViewer.VerticalScrollBarVisibility="Auto">
@@ -73,7 +82,8 @@
                 </StackPanel>
             </ScrollViewer>
             <StackPanel Grid.Row="3" Orientation="Horizontal">
-                <TextBlock FontSize="20" VerticalAlignment="Center" Background="{Binding ColourIndicator}" Text="{Binding ClassificationResult}"/>
+                <TextBlock FontSize="20" VerticalAlignment="Center" Text="Classification result: "/>
+                <TextBlock FontSize="20" VerticalAlignment="Center" Text="{Binding ClassificationResult}"/>
             </StackPanel>
         </Grid>
     </Grid>

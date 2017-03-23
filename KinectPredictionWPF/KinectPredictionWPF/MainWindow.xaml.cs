@@ -68,6 +68,42 @@ namespace KinectPredictionWPF
         private bool isTraining;
         private bool isTesting;
 
+        // Message delivery telemetry
+        private long messagesSent;
+        private long predictionsRecieved;
+
+        public long PredictionsRecieved
+        {
+            get { return this.predictionsRecieved; }
+            set
+            {
+                if (this.predictionsRecieved != value)
+                {
+                    this.predictionsRecieved = value;
+                    if (this.PropertyChanged != null)
+                    {
+                        this.PropertyChanged(this, new PropertyChangedEventArgs("PredictionsRecieved"));
+                    }
+                }
+            }
+        }
+
+        public long MessagesSent 
+        {
+            get { return this.messagesSent; }
+            set
+            {
+                if (this.messagesSent != value)
+                {
+                    this.messagesSent = value;
+                    if (this.PropertyChanged != null)
+                    {
+                        this.PropertyChanged(this, new PropertyChangedEventArgs("MessagesSent"));
+                    }
+                }
+            }
+        }
+
         public ClassificationResult ClassificationResult
         {
             get { return this.classificationResult; }
@@ -90,12 +126,12 @@ namespace KinectPredictionWPF
             get
             {
                 if (this.ClassificationResult == ClassificationResult.Unknown)
-                    return "Gray";
+                    return "White";
                 if (this.ClassificationResult == ClassificationResult.InBed)
                     return "Green";
                 if (this.ClassificationResult == ClassificationResult.OutOfBed)
                     return "Orange";
-                return "Gray";
+                return "White";
             }
         }
 
@@ -255,6 +291,9 @@ namespace KinectPredictionWPF
             kinectSensor.Open();
 
             new Thread(InitIoTHubConnection).Start();
+
+            this.MessagesSent = (long)0;
+            this.PredictionsRecieved = (long)0;
 
             InitializeComponent();
         }
@@ -495,7 +534,7 @@ namespace KinectPredictionWPF
             if (this.IsTraining)
             {
                 // Push data point to IoT Hub (every 30th frame)
-                if (this.framesProcessed % 30 == 0)
+                if (this.framesProcessed % 3 == 0)
                 {
                     new Thread(SendDataPoint).Start();
                 }
@@ -503,8 +542,8 @@ namespace KinectPredictionWPF
 
             if (this.IsTesting)
             {
-                // 1 request per 2 seconds (roughly)
-                if (this.framesProcessed % 60 == 0)
+                // 1 request per 1 seconds (roughly)
+                if (this.framesProcessed % 30 == 0)
                 {
                     new Thread(GetPredictionResult).Start();
                 }
@@ -523,6 +562,11 @@ namespace KinectPredictionWPF
         {
             var messagePayload = JsonConvert.SerializeObject(this.DepthDataPoint);
             var sendResult = IoTHub.Instance.SendStringToHub(messagePayload).Result;
+
+            if (sendResult == 1)
+            {
+                MessagesSent++;
+            }
         }
 
         private void GetPredictionResult()
@@ -531,7 +575,9 @@ namespace KinectPredictionWPF
             // Expect a prediction as to our dependent variable (in bed or out of bed).
             var messagePayload = JsonConvert.SerializeObject(this.DepthDataPoint);
 
-            this.ClassificationResult = ClassificationResult.OutOfBed;
+            this.ClassificationResult = ClassificationResult.InBed;
+
+            this.PredictionsRecieved++;
         }
 
         /// <summary>
