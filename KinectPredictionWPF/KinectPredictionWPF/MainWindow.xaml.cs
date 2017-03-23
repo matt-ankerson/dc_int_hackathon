@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Windows.Data;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -23,6 +24,13 @@ namespace KinectPredictionWPF
         Infrared,
         Color,
         Depth
+    }
+
+    public enum ClassificationResult
+    {
+        Unknown,
+        InBed,
+        OutOfBed
     }
 
     public class DataPoint
@@ -54,6 +62,73 @@ namespace KinectPredictionWPF
         private string statusText = null;
         public event PropertyChangedEventHandler PropertyChanged;
 
+        private ClassificationResult classificationResult;
+
+        // Modes
+        private bool isTraining;
+        private bool isTesting;
+
+        public ClassificationResult ClassificationResult
+        {
+            get { return this.classificationResult; }
+            set
+            {
+                if (this.classificationResult != value)
+                {
+                    this.classificationResult = value;
+                    if (this.PropertyChanged != null)
+                    {
+                        this.PropertyChanged(this, new PropertyChangedEventArgs("ClassificationResult"));
+                        this.PropertyChanged(this, new PropertyChangedEventArgs("ColourIndicator"));
+                    }
+                }
+            }
+        }
+
+        public string ColourIndicator
+        {
+            get
+            {
+                if (this.ClassificationResult == ClassificationResult.Unknown)
+                    return "Gray";
+                if (this.ClassificationResult == ClassificationResult.InBed)
+                    return "Green";
+                if (this.ClassificationResult == ClassificationResult.OutOfBed)
+                    return "Orange";
+                return "Gray";
+            }
+        }
+
+        public bool IsTraining
+        {
+            get { return this.isTraining; }
+            set
+            {
+                if (this.isTraining != value)
+                {
+                    this.isTraining = value;
+                    if (this.PropertyChanged != null)
+                    {
+                        this.PropertyChanged(this, new PropertyChangedEventArgs("IsTraining"));
+                    }
+                }
+            }
+        }
+        public bool IsTesting
+        {
+            get { return this.isTesting; }
+            set
+            {
+                if (this.isTesting != value)
+                {
+                    this.isTesting = value;
+                    if (this.PropertyChanged != null)
+                    {
+                        this.PropertyChanged(this, new PropertyChangedEventArgs("IsTesting"));
+                    }
+                }
+            }
+        }
 
         public string StatusText
         {
@@ -417,12 +492,25 @@ namespace KinectPredictionWPF
                 }
             };
 
-            // Push data point to IoT Hub (every 10th frame)
-            if (this.framesProcessed % 30 == 0)
+            if (this.IsTraining)
             {
-                // Launch a new thread to do push out a message.
-                new Thread(SendDataPoint).Start();
+                // Push data point to IoT Hub (every 30th frame)
+                if (this.framesProcessed % 30 == 0)
+                {
+                    new Thread(SendDataPoint).Start();
+                }
             }
+
+            if (this.IsTesting)
+            {
+                // 1 request per 2 seconds (roughly)
+                if (this.framesProcessed % 60 == 0)
+                {
+                    new Thread(GetPredictionResult).Start();
+                }
+            }
+
+            this.framesProcessed++;
 
             // Don't let the integer count overflow
             if (this.framesProcessed > 1000)
@@ -435,6 +523,15 @@ namespace KinectPredictionWPF
         {
             var messagePayload = JsonConvert.SerializeObject(this.DepthDataPoint);
             var sendResult = IoTHub.Instance.SendStringToHub(messagePayload).Result;
+        }
+
+        private void GetPredictionResult()
+        {
+            // Fire a request to our machine learning model to evaluate the current frame.
+            // Expect a prediction as to our dependent variable (in bed or out of bed).
+            var messagePayload = JsonConvert.SerializeObject(this.DepthDataPoint);
+
+            this.ClassificationResult = ClassificationResult.OutOfBed;
         }
 
         /// <summary>

@@ -33,10 +33,13 @@
             <Grid.RowDefinitions>
                 <RowDefinition Height="70"/>
                 <RowDefinition Height="*"/>
+                <RowDefinition Height="50"/>
                 <RowDefinition Height="100"/>
             </Grid.RowDefinitions>
-            <TextBlock Grid.Row="0" 
-                       Text="Kinect For Windows 2"/>
+            <StackPanel Grid.Row="0" Orientation="Horizontal">
+                <CheckBox VerticalAlignment="Center" IsChecked="{Binding DepthDataPoint.outOfBed }" />
+                <TextBlock FontSize="20" VerticalAlignment="Center" Text=" Is out of bed? (use this to label training data)"/>
+            </StackPanel>
             <StackPanel Grid.Row="1" Orientation="Vertical" 
                         HorizontalAlignment="Left" 
                         VerticalAlignment="Top">
@@ -54,6 +57,8 @@
                 <TextBlock FontSize="11" Text="{Binding DepthDataPoint.farthest.y}"/>
                 <TextBlock FontSize="11" Text="Farthest Z: "/>
                 <TextBlock FontSize="11" Text="{Binding DepthDataPoint.farthest.z}"/>
+                <TextBlock FontSize="11" Text="Average depth: "/>
+                <TextBlock FontSize="11" Text="{Binding DepthDataPoint.averageDepth}"/>
             </StackPanel>
             <Image x:Name="FrameDisplayImage" Grid.Row="1" 
                 Stretch="Uniform"/>
@@ -61,13 +66,15 @@
             ScrollViewer.HorizontalScrollBarVisibility="Auto" 
             ScrollViewer.VerticalScrollBarVisibility="Auto">
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock FontSize="20" VerticalAlignment="Center" Text="Out of Bed? "/>
-                    <CheckBox VerticalAlignment="Center" IsChecked="{Binding DepthDataPoint.outOfBed }" />
-                    <TextBlock VerticalAlignment="Center" FontSize="11" Text="  ("/>
-                    <TextBlock VerticalAlignment="Center" FontSize="11" Text="{Binding DepthDataPoint.outOfBed }"/>
-                    <TextBlock VerticalAlignment="Center" FontSize="11" Text=")"/>
+                    <CheckBox VerticalAlignment="Center" IsChecked="{Binding IsTraining }" />
+                    <TextBlock FontSize="20" VerticalAlignment="Center" Text=" Training "/>
+                    <CheckBox VerticalAlignment="Center" IsChecked="{Binding IsTesting }" />
+                    <TextBlock FontSize="20" VerticalAlignment="Center" Text=" Testing"/>
                 </StackPanel>
             </ScrollViewer>
+            <StackPanel Grid.Row="3" Orientation="Horizontal">
+                <TextBlock FontSize="20" VerticalAlignment="Center" Background="{Binding ColourIndicator}" Text="{Binding ClassificationResult}"/>
+            </StackPanel>
         </Grid>
     </Grid>
 </Window>
