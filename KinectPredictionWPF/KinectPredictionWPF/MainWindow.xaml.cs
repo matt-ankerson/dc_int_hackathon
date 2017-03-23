@@ -158,9 +158,14 @@ namespace KinectPredictionWPF
                 if (this.isTesting != value)
                 {
                     this.isTesting = value;
+
+                    if (!this.isTesting)
+                        this.ClassificationResult = ClassificationResult.Unknown;
+
                     if (this.PropertyChanged != null)
                     {
                         this.PropertyChanged(this, new PropertyChangedEventArgs("IsTesting"));
+                        this.PropertyChanged(this, new PropertyChangedEventArgs("ClassificationResult"));
                     }
                 }
             }
@@ -575,7 +580,11 @@ namespace KinectPredictionWPF
             // Expect a prediction as to our dependent variable (in bed or out of bed).
             var messagePayload = JsonConvert.SerializeObject(this.DepthDataPoint);
 
-            this.ClassificationResult = ClassificationResult.InBed;
+            // Go get a prediction result
+            var classification = AzureML.InvokeRequestResponseService(this.DepthDataPoint).Result;
+
+            if (this.IsTesting)
+                this.ClassificationResult = classification;
 
             this.PredictionsRecieved++;
         }
